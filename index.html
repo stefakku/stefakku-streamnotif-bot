@@ -3,21 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Twitch Dashboard</title>
-  <!-- Telegram Web App SDK -->
+  <title>Stream Announcer</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
-      --bg-color: var(--tg-theme-bg-color, #18181b);
-      --card-bg: var(--tg-theme-secondary-bg-color, #27272a);
+      --bg-color: var(--tg-theme-bg-color, #151e27);
+      --card-bg: var(--tg-theme-secondary-bg-color, #1f2c3a);
       --text-color: var(--tg-theme-text-color, #ffffff);
-      --hint-color: var(--tg-theme-hint-color, #a1a1aa);
-      --button-color: var(--tg-theme-button-color, #9146ff);
+      --hint-color: var(--tg-theme-hint-color, #7f91a4);
+      --button-color: var(--tg-theme-button-color, #5288c1);
       --button-text: var(--tg-theme-button-text-color, #ffffff);
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg-color);
       color: var(--text-color);
       margin: 0;
@@ -27,7 +26,7 @@
 
     h1 {
       font-size: 20px;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
       text-align: center;
     }
 
@@ -40,18 +39,19 @@
     .card {
       background-color: var(--card-bg);
       border-radius: 12px;
-      padding: 12px;
+      padding: 14px 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
       text-align: center;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       position: relative;
     }
 
     .avatar-wrapper {
       position: relative;
-      margin-bottom: 8px;
+      width: 64px;
+      height: 64px;
+      margin-bottom: 10px;
     }
 
     .avatar {
@@ -59,47 +59,41 @@
       height: 64px;
       border-radius: 50%;
       object-fit: cover;
+      background-color: #2b394a;
     }
 
     .badge {
       position: absolute;
-      bottom: 0;
-      right: -4px;
+      top: 0;
+      right: -8px;
       padding: 2px 6px;
       border-radius: 8px;
       font-size: 10px;
       font-weight: bold;
-      text-transform: uppercase;
       color: #fff;
     }
 
-    .badge.online {
-      background-color: #eb0400;
-    }
-
-    .badge.offline {
-      background-color: #53535f;
-    }
+    .badge.online { background-color: #e53935; }
+    .badge.offline { background-color: #546e7a; }
 
     .channel-name {
       font-weight: bold;
       font-size: 15px;
       margin-bottom: 4px;
-      word-break: break-word;
     }
 
     .info-text {
       font-size: 12px;
       color: var(--hint-color);
-      margin-bottom: 2px;
+      margin-bottom: 4px;
     }
 
     .uptime {
       font-size: 11px;
-      color: #00e676;
+      color: #4caf50;
       font-weight: 600;
-      margin-bottom: 10px;
-      height: 15px;
+      margin-bottom: 12px;
+      min-height: 15px;
     }
 
     .btn-link {
@@ -110,77 +104,79 @@
       color: var(--button-text);
       text-decoration: none;
       border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 500;
       text-align: center;
-      display: inline-block;
+      box-sizing: border-box;
     }
 
-    .btn-link:active {
-      opacity: 0.8;
+    .empty-state {
+      text-align: center;
+      color: var(--hint-color);
+      grid-column: 1 / -1;
+      padding: 20px;
     }
   </style>
 </head>
 <body>
 
   <h1>Отслеживаемые каналы</h1>
-  <div class="grid" id="channels-container"></div>
+  <div class="grid" id="channels-container">
+    <div class="empty-state">Загрузка каналов...</div>
+  </div>
 
   <script>
-    // Инициализация Telegram WebApp
     const tg = window.Telegram.WebApp;
-    tg.expand(); // Разворачиваем окно на всю высоту
-
-    // Моковые данные для первого теста интерфейса
-    // (Позже заменим на реальный запрос к боту)
-    const mockChannels = [
-      {
-        name: "stefakku",
-        avatar: "https://via.placeholder.com/64",
-        followers: "1,234",
-        isOnline: true,
-        uptime: "2 ч. 15 мин.",
-        url: "https://twitch.tv/stefakku"
-      },
-      {
-        name: "shroud",
-        avatar: "https://via.placeholder.com/64",
-        followers: "10.9M",
-        isOnline: false,
-        uptime: "",
-        url: "https://twitch.tv/shroud"
-      }
-    ];
+    tg.expand();
 
     function renderChannels(channels) {
       const container = document.getElementById("channels-container");
       container.innerHTML = "";
 
+      if (!channels || channels.length === 0) {
+        container.innerHTML = '<div class="empty-state">Список отслеживаемых каналов пуст.<br>Добавьте каналы через команду /add</div>';
+        return;
+      }
+
       channels.forEach(ch => {
         const card = document.createElement("div");
         card.className = "card";
 
-        const badgeClass = ch.isOnline ? "online" : "offline";
-        const badgeText = ch.isOnline ? "Live" : "Off";
-        const uptimeText = ch.isOnline ? `⏱ ${ch.uptime}` : "";
+        const badgeClass = ch.is_online ? "online" : "offline";
+        const badgeText = ch.is_online ? "LIVE" : "OFF";
+        const uptimeText = ch.is_online && ch.uptime ? `⏱ ${ch.uptime}` : "";
+        const avatarUrl = ch.avatar && ch.avatar !== "" ? ch.avatar : "https://static-cdn.jtvnw.net/user-default-pictures-uv/75305b54-c807-477c-92b6-5c746260a0f1-profile_image-70x70.png";
 
         card.innerHTML = `
           <div class="avatar-wrapper">
-            <img class="avatar" src="${ch.avatar}" alt="${ch.name}">
+            <img class="avatar" src="${avatarUrl}" alt="${ch.name}" onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/75305b54-c807-477c-92b6-5c746260a0f1-profile_image-70x70.png'">
             <span class="badge ${badgeClass}">${badgeText}</span>
           </div>
           <div class="channel-name">${ch.name}</div>
           <div class="info-text">👥 ${ch.followers} фолловеров</div>
           <div class="uptime">${uptimeText}</div>
-          <a class="btn-link" href="${ch.url}" target="_blank">Перейти на канал</a>
+          <a class="btn-link" href="https://twitch.tv/${ch.name}" target="_blank">Перейти на канал</a>
         `;
 
         container.appendChild(card);
       });
     }
 
-    // Рендерим тестовые карточки при загрузке
-    renderChannels(mockChannels);
+    // Получаем данные, переданные из Telegram
+    const urlParams = new URLSearchParams(window.location.search);
+    const rawData = urlParams.get('data');
+
+    if (rawData) {
+      try {
+        const channelsData = JSON.parse(decodeURIComponent(rawData));
+        renderChannels(channelsData);
+      } catch (e) {
+        console.error("Ошибка парсинга данных:", e);
+        renderChannels([]);
+      }
+    } else {
+      renderChannels([]);
+    }
   </script>
 </body>
 </html>
