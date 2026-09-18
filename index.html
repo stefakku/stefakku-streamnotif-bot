@@ -20,7 +20,7 @@
       background-color: var(--bg-color);
       color: var(--text-color);
       margin: 0;
-      padding: 16px;
+      padding: 16px 16px 80px 16px;
       box-sizing: border-box;
     }
 
@@ -47,11 +47,30 @@
       position: relative;
     }
 
+    .btn-delete {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(229, 57, 53, 0.2);
+      color: #e53935;
+      border: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
     .avatar-wrapper {
       position: relative;
       width: 64px;
       height: 64px;
       margin-bottom: 10px;
+      margin-top: 6px;
     }
 
     .avatar {
@@ -88,16 +107,8 @@
       margin-bottom: 4px;
     }
 
-    .uptime {
-      font-size: 11px;
-      color: #4caf50;
-      font-weight: 600;
-      margin-bottom: 12px;
-      min-height: 15px;
-    }
-
     .btn-link {
-      margin-top: auto;
+      margin-top: 8px;
       width: 100%;
       padding: 8px 0;
       background-color: var(--button-color);
@@ -116,6 +127,33 @@
       grid-column: 1 / -1;
       padding: 20px;
     }
+
+    /* Нижняя панель с кнопкой добавления */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: var(--card-bg);
+      padding: 12px 16px;
+      display: flex;
+      justify-content: center;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-add {
+      background-color: var(--button-color);
+      color: var(--button-text);
+      border: none;
+      border-radius: 24px;
+      padding: 10px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
   </style>
 </head>
 <body>
@@ -125,16 +163,35 @@
     <div class="empty-state">Загрузка каналов...</div>
   </div>
 
+  <div class="bottom-bar">
+    <button class="btn-add" onclick="addNewChannel()">➕ Добавить канал</button>
+  </div>
+
   <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
+
+    function removeChannel(name) {
+      if (confirm(`Удалить канал ${name} из отслеживаемых?`)) {
+        // Отправляем команду удаления боту
+        tg.sendData(JSON.stringify({ action: "remove", channel: name }));
+      }
+    }
+
+    function addNewChannel() {
+      const channelName = prompt("Введите никнейм канала Twitch или Kick:");
+      if (channelName && channelName.trim() !== "") {
+        // Отправляем команду добавления боту
+        tg.sendData(JSON.stringify({ action: "add", channel: channelName.trim() }));
+      }
+    }
 
     function renderChannels(channels) {
       const container = document.getElementById("channels-container");
       container.innerHTML = "";
 
       if (!channels || channels.length === 0) {
-        container.innerHTML = '<div class="empty-state">Список отслеживаемых каналов пуст.<br>Добавьте каналы через команду /add</div>';
+        container.innerHTML = '<div class="empty-state">Список отслеживаемых каналов пуст.<br>Нажмите «+ Добавить канал» ниже.</div>';
         return;
       }
 
@@ -144,25 +201,24 @@
 
         const badgeClass = ch.is_online ? "online" : "offline";
         const badgeText = ch.is_online ? "LIVE" : "OFF";
-        const uptimeText = ch.is_online && ch.uptime ? `⏱ ${ch.uptime}` : "";
-        const avatarUrl = ch.avatar && ch.avatar !== "" ? ch.avatar : "https://static-cdn.jtvnw.net/user-default-pictures-uv/75305b54-c807-477c-92b6-5c746260a0f1-profile_image-70x70.png";
+        const defaultAvatar = "https://static-cdn.jtvnw.net/user-default-pictures-uv/75305b54-c807-477c-92b6-5c746260a0f1-profile_image-70x70.png";
+        const avatarUrl = ch.avatar && ch.avatar !== "" ? ch.avatar : defaultAvatar;
 
         card.innerHTML = `
+          <button class="btn-delete" onclick="removeChannel('${ch.name}')" title="Удалить">✕</button>
           <div class="avatar-wrapper">
-            <img class="avatar" src="${avatarUrl}" alt="${ch.name}" onerror="this.src='https://static-cdn.jtvnw.net/user-default-pictures-uv/75305b54-c807-477c-92b6-5c746260a0f1-profile_image-70x70.png'">
+            <img class="avatar" src="${avatarUrl}" alt="${ch.name}" onerror="this.src='${defaultAvatar}'">
             <span class="badge ${badgeClass}">${badgeText}</span>
           </div>
           <div class="channel-name">${ch.name}</div>
           <div class="info-text">👥 ${ch.followers} фолловеров</div>
-          <div class="uptime">${uptimeText}</div>
-          <a class="btn-link" href="https://twitch.tv/${ch.name}" target="_blank">Перейти на канал</a>
+          <a class="btn-link" href="${ch.url || 'https://twitch.tv/' + ch.name}" target="_blank">Перейти</a>
         `;
 
         container.appendChild(card);
       });
     }
 
-    // Получаем данные, переданные из Telegram
     const urlParams = new URLSearchParams(window.location.search);
     const rawData = urlParams.get('data');
 
